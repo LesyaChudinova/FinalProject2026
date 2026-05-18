@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Профиль</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <a href="/index" class="header-btn">← Назад</a>
+            <div class="header-title">Профиль</div>
+            <div></div>
+        </header>
+
+        <div class="profile-container">
+            <div id="profileForm"></div>
+            <span id="profileMsg" style="display:block;margin-top:15px;font-size:14px;color:green;"></span>
+        </div>
+    </div>
+    <script>
+        fetch('/api/profile').then(r => r.json()).then(d => {
+            document.getElementById('profileForm').innerHTML = `
+                <div class="form-group"><label>Никнейм</label><input id="nick" value="${d.nickname||''}"></div>
+                <div class="form-group"><label>Возраст</label><input id="age" type="number" value="${d.age||25}"></div>
+                <div class="form-group"><label>Цели</label><input id="goals" value="${d.goals||''}"></div>
+                <div class="form-group"><label>Образ жизни</label><select id="lifestyle"><option>сидячий</option><option>умеренный</option><option>активный</option></select></div>
+                <div class="form-group"><label>Тип личности</label><select id="personality"><option>introvert</option><option>extrovert</option><option>ambivert</option></select></div>
+                <div class="form-group"><label>Хронотип</label><select id="chronotype"><option>morning</option><option>evening</option><option>neutral</option></select></div>
+                <div class="form-group"><label>Время концентрации (мин)</label><input id="concentration" value="${d.concentration||'45'}"></div>
+                <button class="btn" onclick="saveProfile()">Сохранить</button>`;
+            document.getElementById('lifestyle').value = d.lifestyle||'сидячий';
+            document.getElementById('personality').value = d.personality||'ambivert';
+            document.getElementById('chronotype').value = d.chronotype||'neutral';
+        });
+
+        function saveProfile() {
+            fetch('/api/profile', {method:'POST', body: JSON.stringify({
+                nickname: document.getElementById('nick').value,
+                age: parseInt(document.getElementById('age').value)||25,
+                goals: document.getElementById('goals').value,
+                lifestyle: document.getElementById('lifestyle').value,
+                personality: document.getElementById('personality').value,
+                chronotype: document.getElementById('chronotype').value,
+                concentration: document.getElementById('concentration').value
+            })})
+            .then(r => r.json())
+            .then(d => {
+                var msg = document.getElementById('profileMsg');
+                msg.textContent = 'Сохранено!';
+                msg.style.color = '#2e7d32';
+            })
+            .catch(() => {
+                var msg = document.getElementById('profileMsg');
+                msg.textContent = 'Ошибка сохранения';
+                msg.style.color = 'red';
+            });
+        }
+    </script>
+</body>
+</html>

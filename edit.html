@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Редактирование</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .task-dot[draggable="true"] { cursor: grab; }
+        .task-dot.dragging { opacity: 0.5; }
+        .cell.drop-target { background: #e8f0fe; }
+        .context-menu {
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 2px 2px 10px rgba(0,0,0,0.2);
+            z-index: 1000;
+            display: none;
+            min-width: 150px;
+        }
+        .context-menu div {
+            padding: 10px 16px;
+            cursor: pointer;
+            font-size: 14px;
+            border-bottom: 1px solid #eee;
+        }
+        .context-menu div:last-child { border-bottom: none; }
+        .context-menu div:hover { background: #f0f4ff; }
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 12px;
+            margin-top: 5px;
+            background: #722F37;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .btn-sm:hover { background: #8B3A44; }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <a href="/index" class="header-btn">← Назад</a>
+            <div class="header-title">Редактирование</div>
+            <div></div>
+        </header>
+
+        <div class="week-nav">
+            <a href="#" onclick="changeWeek(-1);return false;" class="week-arrow">←</a>
+            <span id="weekLabel">---</span>
+            <a href="#" onclick="changeWeek(1);return false;" class="week-arrow">→</a>
+        </div>
+
+        <div class="edit-layout-full">
+            <div class="edit-schedule">
+                <table class="week-table small">
+                    <tr>
+                        <th>ПН</th><th>ВТ</th><th>СР</th><th>ЧТ</th><th>ПТ</th><th>СБ</th><th>ВС</th>
+                    </tr>
+                    <tr>
+                        <td><div class="cell" data-day="1"></div></td>
+                        <td><div class="cell" data-day="2"></div></td>
+                        <td><div class="cell" data-day="3"></div></td>
+                        <td><div class="cell" data-day="4"></div></td>
+                        <td><div class="cell" data-day="5"></div></td>
+                        <td><div class="cell" data-day="6"></div></td>
+                        <td><div class="cell" data-day="7"></div></td>
+                    </tr>
+                </table>
+            </div>
+
+            <div class="edit-columns">
+                <div class="edit-col">
+                    <div class="panel-box">
+                        <h3>Фиксированные задачи</h3>
+                        <div id="fixedList"><p class="empty-text">Нет задач</p></div>
+                    </div>
+                </div>
+                <div class="edit-col">
+                    <div class="panel-box">
+                        <h3>Гибкие задачи</h3>
+                        <div id="flexList" class="drop-zone"><p class="empty-text">Нет задач</p></div>
+                    </div>
+                </div>
+                <div class="edit-col">
+                    <div class="panel-box">
+                        <h3>Отложенные</h3>
+                        <div id="postList" class="drop-zone"><p class="empty-text">Нет задач</p></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="suggestionsList"></div>
+
+        <div class="btn-row">
+            <a id="addTaskLink" href="/tasks" class="btn btn-action">+ Добавить задачу</a>
+            <a id="distributeLink" href="/distribute" class="btn btn-action">Распределить задачи</a>
+            <a id="saveExitLink" href="/save-and-exit" class="btn-action">Сохранить и выйти</a>
+        </div>
+    </div>
+
+    <div id="contextMenu" class="context-menu">
+        <div onclick="editTask()">Редактировать</div>
+        <div id="menuEditTime" onclick="editTime()">Изменить время</div>
+        <div onclick="deleteTask()">Удалить</div>
+    </div>
+
+    <script>
+        var LANG = {
+            'work': 'работа',
+            'study': 'учёба',
+            'sport': 'спорт',
+            'rest': 'отдых',
+            'hobby': 'хобби',
+            'social': 'общение',
+            'Walk': 'Прогулка',
+            'Stretching': 'Растяжка',
+            'Breathing': 'Дыхательная практика',
+            'Meditation': 'Медитация',
+            'Reading': 'Чтение',
+            'Music': 'Музыка',
+            'Call a friend': 'Звонок другу',
+            'happy': 'радость',
+            'calm': 'спокойствие',
+            'sad': 'грусть',
+            'anxious': 'тревога'
+        };
+        function translate(key) { return LANG[key] || key; }
+
+        function getMonday(d) {
+            var t = new Date(d);
+            var w = t.getDay();
+            if (w === 0) w = 7;
+            t.setDate(t.getDate() - w + 1);
+            var y = t.getFullYear();
+            var m = String(t.getMonth() + 1).padStart(2, '0');
+            var day = String(t.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        }
+
+        var urlParams = new URLSearchParams(window.location.search);
+        var urlWeek = urlParams.get('week');
+        var baseMondayStr;
+        if (urlWeek) {
+            var parts = urlWeek.split('-');
+            var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+            baseMondayStr = getMonday(d);
+        } else {
+            baseMondayStr = getMonday(new Date());
+        }
+        var weekOffset = 0;
+
+        function getCurrentMonday() {
+            var parts = baseMondayStr.split('-');
+            var d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+            d.setDate(d.getDate() + weekOffset * 7);
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        }
+
+        function changeWeek(dir) { weekOffset += dir; loadAll(); }
+
+        function updateButtons() {
+            var wk = getCurrentMonday();
+            document.getElementById('addTaskLink').href = '/tasks?week=' + wk;
+            document.getElementById('distributeLink').href = '/distribute?week=' + wk;
+        }
+
+        var selectedTaskId = null;
+        var selectedTaskElement = null;
+
+        document.addEventListener('contextmenu', function(e) {
+            var taskEl = e.target.closest('.task-dot, .task-item');
+            if (taskEl) {
+                e.preventDefault();
+                selectedTaskId = taskEl.dataset.taskId;
+                selectedTaskElement = taskEl;
+                var menu = document.getElementById('contextMenu');
+                menu.style.display = 'block';
+                menu.style.left = e.clientX + 'px';
+                menu.style.top = e.clientY + 'px';
+                var timeItem = document.getElementById('menuEditTime');
+                timeItem.style.display = taskEl.classList.contains('task-dot') ? 'block' : 'none';
+            }
+        });
+
+        document.addEventListener('click', function() {
+            document.getElementById('contextMenu').style.display = 'none';
+        });
+
+        function editTask() {
+            if (selectedTaskId) {
+                window.location.href = '/tasks?week=' + encodeURIComponent(getCurrentMonday()) + '&edit=' + selectedTaskId;
+            }
+        }
+
+        function editTime() {
+            if (selectedTaskId && selectedTaskElement.classList.contains('task-dot')) {
+                var newTime = prompt('Новое время (например, 10:30):');
+                if (newTime) {
+                    fetch('/api/tasks/' + selectedTaskId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ time: newTime, week: getCurrentMonday() })
+                    }).then(function() { loadAll(); });
+                }
+            }
+        }
+
+        function deleteTask() {
+            if (selectedTaskId && confirm('Удалить задачу?')) {
+                fetch('/api/tasks/' + selectedTaskId, { method: 'DELETE' })
+                    .then(function() { loadAll(); });
+            }
+        }
+
+        document.addEventListener('dragstart', function(e) {
+            var taskEl = e.target.closest('.task-dot, .task-item');
+            if (taskEl && taskEl.dataset.taskId) {
+                e.dataTransfer.setData('text/plain', taskEl.dataset.taskId);
+                taskEl.classList.add('dragging');
+            }
+        });
+
+        document.addEventListener('dragend', function(e) {
+            var taskEl = e.target.closest('.task-dot, .task-item');
+            if (taskEl) taskEl.classList.remove('dragging');
+        });
+
+        document.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            var cell = e.target.closest('.cell');
+            if (cell) cell.classList.add('drop-target');
+        });
+
+        document.addEventListener('dragleave', function(e) {
+            var cell = e.target.closest('.cell');
+            if (cell) cell.classList.remove('drop-target');
+        });
+
+        document.addEventListener('drop', function(e) {
+            e.preventDefault();
+            var cell = e.target.closest('.cell');
+            var postList = e.target.closest('#postList');
+            var flexList = e.target.closest('#flexList');
+            var taskId = e.dataTransfer.getData('text/plain');
+            if (!taskId) return;
+
+            if (cell) {
+                cell.classList.remove('drop-target');
+                var newDay = parseInt(cell.dataset.day);
+                if (!newDay) return;
+                var sourceEl = document.querySelector('[data-task-id="' + taskId + '"]');
+                if (!sourceEl) return;
+                var payload = { day: newDay, week: getCurrentMonday() };
+                if (sourceEl.classList.contains('task-item')) {
+                    payload.move_to_schedule = true;
+                    payload.time = '09:00';
+                }
+                fetch('/api/tasks/' + taskId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(function() { loadAll(); });
+            } else if (postList) {
+                fetch('/api/tasks/' + taskId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ postpone: true, week: getCurrentMonday() })
+                }).then(function() { loadAll(); });
+            } else if (flexList) {
+                fetch('/api/tasks/' + taskId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ move_to_unscheduled_next_week: true, week: getCurrentMonday() })
+                }).then(function() { loadAll(); });
+            }
+        });
+
+        function addIdeaToSchedule(ideaId) {
+            fetch('/api/suggestions/add?idea_id=' + ideaId + '&week=' + encodeURIComponent(getCurrentMonday()))
+                .then(r => r.json())
+                .then(d => {
+                    if (!d.ok) {
+                        alert('Ошибка: ' + (d.error || 'неизвестно'));
+                        return;
+                    }
+                    var tempTaskId = d.task_id;
+                    var today = new Date();
+                    var currentDay = today.getDay();
+                    if (currentDay === 0) currentDay = 7;
+                    var targetDay = currentDay + 1;
+                    var targetWeek = getCurrentMonday();
+                    if (targetDay > 7) {
+                        targetDay = 1;
+                        var next = new Date(targetWeek);
+                        next.setDate(next.getDate() + 7);
+                        targetWeek = next.toISOString().split('T')[0];
+                    }
+                    fetch('/api/tasks/' + tempTaskId, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            move_to_schedule: true,
+                            day: targetDay,
+                            time: '09:00',
+                            importance: 9,
+                            pleasure: 8,
+                            week: targetWeek
+                        })
+                    }).then(() => loadAll());
+                });
+        }
+
+        function loadAll() {
+            var wk = getCurrentMonday();
+            document.getElementById('weekLabel').textContent = wk;
+            updateButtons();
+
+            // Расписание
+            fetch('/api/schedule?week=' + wk + '&source=edit')
+                .then(r => r.json())
+                .then(d => {
+                    var cells = document.querySelectorAll('.edit-schedule .cell');
+                    for (var i = 0; i < 7; i++) {
+                        var tasks = d.scheduled ? d.scheduled.filter(t => t.day == i + 1) : [];
+                        var h = '';
+                        for (var j = 0; j < tasks.length; j++) {
+                            var cat = translate(tasks[j].category);
+                            var bg = tasks[j].color || '#f5f5f5';
+                            h += '<div class="task-dot" data-task-id="' + tasks[j].id + '" draggable="true" style="background-color:' + bg + ';">';
+                            h += '<b>' + translate(tasks[j].name) + '</b><br>';
+                            h += '<small>' + (tasks[j].time || '') + ' ' + tasks[j].duration + 'ч ' + cat + '</small>';
+                            h += '</div>';
+                        }
+                        cells[i].innerHTML = h || '-';
+                    }
+                });
+
+            fetch('/api/tasks/all?week=' + wk + '&source=edit')
+                .then(r => r.json())
+                .then(d => {
+                    var fl = '';
+                    for (var i = 0; i < d.flexible.length; i++) {
+                        fl += '<div class="task-item" data-task-id="' + d.flexible[i].id + '" draggable="true">';
+                        fl += '<div class="task-item-name">' + translate(d.flexible[i].name) + '</div>';
+                        fl += '<div class="task-item-info">' + translate(d.flexible[i].category) + ' | важность: ' + d.flexible[i].importance + ' | приятность: ' + d.flexible[i].pleasure + '</div>';
+                        fl += '</div>';
+                    }
+                    document.getElementById('flexList').innerHTML = fl || '<p class="empty-text">Нет задач</p>';
+
+                    var fix = '';
+                    for (var i = 0; i < d.fixed.length; i++) {
+                        fix += '<div class="task-item"><div class="task-item-name">' + (d.fixed[i].name || 'Без названия') + '</div><div class="task-item-info">' + d.fixed[i].date + ' | ' + d.fixed[i].begin + '-' + d.fixed[i].end + '</div></div>';
+                    }
+                    document.getElementById('fixedList').innerHTML = fix || '<p class="empty-text">Нет задач</p>';
+
+                    var pl = '';
+                    for (var i = 0; i < d.postponed.length; i++) {
+                        pl += '<div class="task-item" data-task-id="' + d.postponed[i].id + '" draggable="true"><div class="task-item-name">' + translate(d.postponed[i].name) + '</div><div class="task-item-info">отложено</div></div>';
+                    }
+                    document.getElementById('postList').innerHTML = pl || '<p class="empty-text">Нет задач</p>';
+                });
+
+            fetch('/api/suggestions/ideas?week=' + wk)
+                .then(r => r.json())
+                .then(ideas => {
+                    let html = '<div class="panel-box" style="margin-top:20px;"><h3>Рекомендации для вас</h3>';
+                    if (ideas.length === 0) {
+                        html += '<p class="empty-text">Нет рекомендаций</p>';
+                    } else {
+                        ideas.forEach(idea => {
+                            html += `<div class="task-item" style="border-left-color: ${idea.color};">
+                                <div class="task-item-name">${translate(idea.name)}</div>
+                                <div class="task-item-info">${idea.description} (${idea.length}ч)</div>
+                                <button class="btn btn-sm" onclick="addIdeaToSchedule(${idea.id})">Добавить</button>
+                            </div>`;
+                        });
+                    }
+                    html += '</div>';
+                    document.getElementById('suggestionsList').innerHTML = html;
+                });
+
+            var ths = document.querySelectorAll('.edit-schedule th');
+            var realToday = new Date().getDay();
+            if (realToday === 0) realToday = 7;
+            var currentWeekMonday = getMonday(new Date());   // реальный понедельник
+            var isCurrentWeek = (wk === currentWeekMonday);
+            for (var k = 0; k < ths.length; k++) {
+                ths[k].classList.toggle('today', isCurrentWeek && k + 1 === realToday);
+            }
+        }
+
+        loadAll();
+    </script>
+</body>
+</html>

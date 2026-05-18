@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>День</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <a href="/profile" class="header-btn">Профиль</a>
+                <a href="/instructions" class="header-btn">Инструкция</a>
+            </div>
+            <div class="header-title">Умный календарь</div>
+            <div class="header-right">
+                <a href="/health" class="header-btn">Состояние</a>
+                <a href="/logout" class="header-btn">Выход</a>
+            </div>
+        </header>
+
+        <div class="view-switcher">
+            <a href="/index" class="view-btn">Неделя</a>
+            <a href="/day" class="view-btn active">День</a>
+        </div>
+
+        <div class="day-selector">
+            <a href="#" class="day-arrow" id="prevDay">←</a>
+            <span id="selectedDay">Загрузка...</span>
+            <a href="#" class="day-arrow" id="nextDay">→</a>
+        </div>
+
+        <div class="day-schedule" id="daySchedule">
+            <p style="text-align:center;color:#aaa;padding:50px;">Нет задач</p>
+        </div>
+
+        <a href="/tasks" class="fab">+</a>
+    </div>
+
+    <script>
+        var daysFull = ['Понедельник','Вторник','Среда','Четверг','Пятница','Суббота','Воскресенье'];
+        var today = new Date();
+        var currentDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+        function formatDate(d) {
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        }
+
+        function getMonday(d) {
+            var t = new Date(d);
+            var w = t.getDay();
+            if (w === 0) w = 7;
+            t.setDate(t.getDate() - w + 1);
+            return formatDate(t);
+        }
+
+        function loadDaySchedule() {
+            var dateStr = formatDate(currentDate);
+            var weekMonday = getMonday(currentDate);
+            document.getElementById('selectedDay').textContent = 
+                daysFull[(currentDate.getDay() + 6) % 7] + ' — ' + dateStr;
+
+            fetch('/api/schedule?week=' + weekMonday)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var dayOfWeek = currentDate.getDay();
+                    if (dayOfWeek === 0) dayOfWeek = 7;
+                    var tasks = d.scheduled ? d.scheduled.filter(function(t) { return t.day == dayOfWeek; }) : [];
+                    var container = document.getElementById('daySchedule');
+                    if (tasks.length === 0) {
+                        container.innerHTML = '<p style="text-align:center;color:#aaa;padding:50px;">Нет задач</p>';
+                    } else {
+                        var html = '';
+                        for (var i = 0; i < tasks.length; i++) {
+                            html += '<div class="task-dot"><b>' + tasks[i].name + '</b><br><small>' + tasks[i].time + ' ' + tasks[i].duration + 'ч ' + tasks[i].category + '</small></div>';
+                        }
+                        container.innerHTML = html;
+                    }
+                });
+        }
+
+        document.getElementById('prevDay').onclick = function(e) {
+            e.preventDefault();
+            currentDate.setDate(currentDate.getDate() - 1);
+            loadDaySchedule();
+        };
+
+        document.getElementById('nextDay').onclick = function(e) {
+            e.preventDefault();
+            currentDate.setDate(currentDate.getDate() + 1);
+            loadDaySchedule();
+        };
+
+        loadDaySchedule();
+    </script>
+</body>
+</html>

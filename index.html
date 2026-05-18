@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Умный календарь</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <a href="/profile" class="header-btn">Профиль</a>
+                <a href="/instructions" class="header-btn">Инструкция</a>
+            </div>
+            <div class="header-title">Умный календарь</div>
+            <div class="header-right">
+                <a href="/health" class="header-btn">Состояние</a>
+                <a href="/analytics" class="header-btn">Аналитика</a>
+                <a href="/logout" class="header-btn">Выход</a>
+            </div>
+        </header>
+
+        <div class="view-switcher">
+            <a href="/index" class="view-btn active">Неделя</a>
+            <a href="/day" class="view-btn">День</a>
+        </div>
+
+        <div class="week-nav">
+            <a href="#" onclick="changeWeek(-1);return false;" class="week-arrow">←</a>
+            <span id="weekLabel">---</span>
+            <a href="#" onclick="changeWeek(1);return false;" class="week-arrow">→</a>
+        </div>
+
+        <table class="week-table">
+            <tr>
+                <th>ПН</th><th>ВТ</th><th>СР</th><th>ЧТ</th><th>ПТ</th><th>СБ</th><th>ВС</th>
+            </tr>
+            <tr>
+                <td><div class="cell"><span class="empty-day">Свободно</span></div></td>
+                <td><div class="cell"><span class="empty-day">Свободно</span></div></td>
+                <td><div class="cell"><span class="empty-day">Свободно</span></div></td>
+                <td><div class="cell"><span class="empty-day">Свободно</span></div></td>
+                <td><div class="cell"><span class="empty-day">Свободно</span></div></td>
+                <td><div class="cell"><span class="empty-day">Свободно</span></div></td>
+                <td><div class="cell"><span class="empty-day">Свободно</span></div></td>
+            </tr>
+        </table>
+
+        <div class="btn-row">
+            <a id="editLink" href="/edit?reset=1" class="btn-main">Изменить расписание</a>
+        </div>
+    </div>
+
+    <script>
+        function getMonday(d) {
+            var t = new Date(d);
+            var w = t.getDay();
+            if (w === 0) w = 7;
+            t.setDate(t.getDate() - w + 1);
+            var y = t.getFullYear();
+            var m = String(t.getMonth() + 1).padStart(2, '0');
+            var day = String(t.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        }
+
+        var baseWeek = getMonday(new Date());
+        var weekOffset = 0;
+
+        function changeWeek(dir) {
+            weekOffset += dir;
+            loadWeek();
+        }
+
+        function getCurrentMonday() {
+            var d = new Date(baseWeek);
+            d.setDate(d.getDate() + weekOffset * 7);
+            var y = d.getFullYear();
+            var m = String(d.getMonth() + 1).padStart(2, '0');
+            var day = String(d.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        }
+
+        function loadWeek() {
+            var wk = getCurrentMonday();
+            document.getElementById('weekLabel').textContent = wk;
+
+            document.getElementById('editLink').href = '/edit?week=' + wk + '&reset=1';
+
+            fetch('/api/schedule?week=' + wk)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    var cells = document.querySelectorAll('.cell');
+                    for (var i = 0; i < 7; i++) {
+                        var tasks = d.scheduled ? d.scheduled.filter(function(t) { return t.day == i + 1; }) : [];
+                        var h = '';
+                        for (var j = 0; j < tasks.length; j++) {
+                            h += '<div class="task-dot"><b>' + tasks[j].name + '</b><br><small>' + tasks[j].time + ' ' + tasks[j].duration + 'ч</small></div>';
+                        }
+                        cells[i].innerHTML = h || '<span class="empty-day">Свободно</span>';
+                    }
+                });
+
+            var td = new Date().getDay();
+            if (td === 0) td = 7;
+            var ths = document.querySelectorAll('.week-table th');
+            for (var k = 0; k < ths.length; k++) {
+                if (k + 1 === td && weekOffset === 0) ths[k].classList.add('today');
+                else ths[k].classList.remove('today');
+            }
+        }
+
+        loadWeek();
+    </script>
+</body>
+</html>

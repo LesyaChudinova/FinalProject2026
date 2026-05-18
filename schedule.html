@@ -1,0 +1,24 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="UTF-8"><title>Расписание</title><link rel="stylesheet" href="/style.css"></head>
+<body><div class="container">
+<nav><a href="/">Главная</a></nav>
+<h1>Расписание</h1>
+<button class="btn" onclick="generate()">Сгенерировать план</button>
+<div id="result"></div>
+</div>
+<script>
+function generate(){
+    fetch('/api/schedule?week=2026-04-21').then(r=>r.json()).then(d=>{
+        let h='<h2>Размещённые задачи</h2>';
+        d.scheduled.forEach(s=>{ h+=`<div class="card">${s.name} — ${s.time} (${s.duration}ч, ${s.category})</div>`; });
+        if(d.unscheduled.length){ h+='<h2>Отложенные задачи</h2>';
+            d.unscheduled.forEach(u=>{ h+=`<div class="card">${u.name} (${u.category})</div>`; }); }
+        if(d.warnings.length){ h+='<h2>Предупреждения</h2>';
+            d.warnings.forEach(w=>{ h+=`<div class="warning">${w}</div>`; }); }
+        if(d.suggestions.length){ h+='<h2>Рекомендации</h2>';
+            d.suggestions.forEach(s=>{ h+=`<div class="suggestion" style="border-color:${s.color}">${s.name} — ${s.description} (${s.length} мин)</div>`; }); }
+        if(d.balance){ h+='<h2>Баланс</h2>';
+            Object.entries(d.balance).forEach(([k,v])=>{ h+=`<div>${k}: ${v.toFixed(0)}%</div>`; }); }
+        document.getElementById('result').innerHTML=h;
+    });
+}
+</script></body></html>

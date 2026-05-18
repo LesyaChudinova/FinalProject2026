@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Состояние здоровья</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <a href="/index" class="header-btn">← Назад</a>
+            <div class="header-title">Состояние здоровья</div>
+            <div></div>
+        </header>
+        <div class="form-container">
+            <h2 style="margin-bottom:15px;">Данные на неделю</h2>
+            <form id="healthForm">
+                <div class="form-group"><label>Неделя</label><input type="text" id="hweek" readonly></div>
+                <div class="form-group"><label>Усталость (1-10)</label><input type="number" id="htired" min="1" max="10" value="5"></div>
+                <div class="form-group"><label>Общее состояние (1-10)</label><input type="number" id="hgeneral" min="1" max="10" value="5"></div>
+                <div class="form-group"><label>Эмоция</label>
+                    <select id="hemotion">
+                        <option value="happy">радость</option>
+                        <option value="calm">спокойствие</option>
+                        <option value="sad">грусть</option>
+                        <option value="anxious">тревога</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Настроение (1-10)</label><input type="number" id="hmood" min="1" max="10" value="5"></div>
+                <div class="form-group"><label>Апатия (1-10)</label><input type="number" id="hapathy" min="1" max="10" value="5"></div>
+                <button type="submit" class="btn">Сохранить</button>
+            </form>
+            <span id="healthMsg" style="display:block;margin-top:12px;font-size:14px;color:green;"></span>
+        </div>
+    </div>
+    <script>
+        var LANG = {
+            'work': 'работа',
+            'study': 'учёба',
+            'sport': 'спорт',
+            'rest': 'отдых',
+            'hobby': 'хобби',
+            'social': 'общение',
+            'Walk': 'Прогулка',
+            'Stretching': 'Растяжка',
+            'Breathing': 'Дыхательная практика',
+            'Meditation': 'Медитация',
+            'Reading': 'Чтение',
+            'Music': 'Музыка',
+            'Call a friend': 'Звонок другу',
+            'happy': 'радость',
+            'calm': 'спокойствие',
+            'sad': 'грусть',
+            'anxious': 'тревога'
+        };
+        function translate(key) { return LANG[key] || key; }
+
+        function getMonday(d) {
+            var t = new Date(d);
+            var w = t.getDay();
+            if (w === 0) w = 7;
+            t.setDate(t.getDate() - w + 1);
+            var y = t.getFullYear();
+            var m = String(t.getMonth() + 1).padStart(2, '0');
+            var day = String(t.getDate()).padStart(2, '0');
+            return y + '-' + m + '-' + day;
+        }
+
+        var currentMonday = getMonday(new Date());
+        document.getElementById('hweek').value = currentMonday;
+
+        function loadHealth() {
+            fetch('/api/health/get?week=' + currentMonday)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    console.log('Health data loaded:', d);
+                    if (d && d.tiredness !== undefined) {
+                        document.getElementById('htired').value = d.tiredness;
+                        document.getElementById('hgeneral').value = d.general;
+                        document.getElementById('hemotion').value = d.emotion;   // 'happy','calm',...
+                        document.getElementById('hmood').value = d.mood;
+                        document.getElementById('hapathy').value = d.apathy;
+                        document.getElementById('healthMsg').textContent = 'Загружены предыдущие данные';
+                        document.getElementById('healthMsg').style.color = '#722F37';
+                    } else {
+                        document.getElementById('healthMsg').textContent = 'Нет данных за эту неделю';
+                        document.getElementById('healthMsg').style.color = '#888';
+                    }
+                })
+                .catch(function(e) {
+                    console.error('Load failed:', e);
+                    document.getElementById('healthMsg').textContent = 'Ошибка загрузки';
+                    document.getElementById('healthMsg').style.color = 'red';
+                });
+        }
+        loadHealth();
+
+        document.getElementById('healthForm').onsubmit = function(e) {
+            e.preventDefault();
+            var data = {
+                week: currentMonday,
+                tiredness: parseInt(document.getElementById('htired').value) || 5,
+                general: parseInt(document.getElementById('hgeneral').value) || 5,
+                emotion: document.getElementById('hemotion').value,
+                mood: parseInt(document.getElementById('hmood').value) || 5,
+                apathy: parseInt(document.getElementById('hapathy').value) || 5
+            };
+            fetch('/api/health', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(function(r) {
+                if (!r.ok) {
+                    return r.json().then(function(err) { throw new Error(err.error || 'Unknown error'); });
+                }
+                return r.json();
+            })
+            .then(function(d) {
+                document.getElementById('healthMsg').textContent = 'Сохранено!';
+                document.getElementById('healthMsg').style.color = '#2e7d32';
+            })
+            .catch(function(e) {
+                document.getElementById('healthMsg').textContent = 'Ошибка: ' + e.message;
+                document.getElementById('healthMsg').style.color = 'red';
+            });
+            return false;
+        };
+    </script>
+</body>
+</html>

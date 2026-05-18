@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Задача</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <a href="javascript:history.back()" class="header-btn">← Назад</a>
+            <div class="header-title" id="pageTitle">Новая задача</div>
+            <div></div>
+        </header>
+        <div class="form-container">
+            <form id="taskForm" action="/task-create" method="post" onsubmit="return submitForm()">
+                <input type="hidden" name="week" id="taskWeek">
+                <input type="hidden" name="task_id" id="editTaskId">
+                <input type="hidden" name="days" id="hiddenDays">
+                <div class="form-group"><label>Название</label><input type="text" name="name" id="tname" required></div>
+                <div class="form-group"><label>Тип</label>
+                    <select name="type" id="ttype">
+                        <option value="flexible">Гибкая</option>
+                        <option value="fixed">Фиксированная</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Категория</label>
+                    <select name="category" id="tcat">
+                        <option value="work">работа</option>
+                        <option value="study">учёба</option>
+                        <option value="sport">спорт</option>
+                        <option value="rest">отдых</option>
+                        <option value="hobby">хобби</option>
+                        <option value="social">общение</option>
+                    </select>
+                </div>
+                <div class="form-group"><label>Уровень активности (1–10)</label><input type="number" name="activity_level" id="tact" min="1" max="10" value="5" required></div>
+                <div id="flexFields">
+                    <div class="form-group"><label>Длительность (ч)</label><input type="number" name="duration" id="tdur" step="0.5" min="0.5" value="1"></div>
+                    <div id="taskWarnings" style="color: #722F37; font-size: 12px; margin-top: 5px;"></div>
+                    <div class="form-group"><label>Важность (1-10)</label><input type="number" name="importance" id="timp" min="1" max="10" value="5"></div>
+                    <div class="form-group"><label>Приятность (1-10)</label><input type="number" name="pleasure" id="tple" min="1" max="10" value="5"></div>
+                    <div class="form-group">
+                        <label>Предпочтительные дни</label>
+                        <div class="day-buttons" id="dayButtons">
+                            <button type="button" data-day="1">ПН</button>
+                            <button type="button" data-day="2">ВТ</button>
+                            <button type="button" data-day="3">СР</button>
+                            <button type="button" data-day="4">ЧТ</button>
+                            <button type="button" data-day="5">ПТ</button>
+                            <button type="button" data-day="6">СБ</button>
+                            <button type="button" data-day="7">ВС</button>
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Дедлайн</label><input type="date" name="deadline" id="tdead"></div>
+                </div>
+                <div id="fixedFields" style="display:none;">
+                    <div class="form-group"><label>Дата</label><input type="date" name="date" id="fdate"></div>
+                    <div class="form-group"><label>Начало</label><input type="time" name="begin" value="09:00"></div>
+                    <div class="form-group"><label>Конец</label><input type="time" name="end" value="10:00"></div>
+                </div>
+                <button type="submit" id="submitBtn" class="btn">Сохранить</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        var LANG = {
+            'work': 'работа',
+            'study': 'учёба',
+            'sport': 'спорт',
+            'rest': 'отдых',
+            'hobby': 'хобби',
+            'social': 'общение',
+            'Walk': 'Прогулка',
+            'Stretching': 'Растяжка',
+            'Breathing': 'Дыхательная практика',
+            'Meditation': 'Медитация',
+            'Reading': 'Чтение',
+            'Music': 'Музыка',
+            'Call a friend': 'Звонок другу',
+            'happy': 'радость',
+            'calm': 'спокойствие',
+            'sad': 'грусть',
+            'anxious': 'тревога'
+        };
+        function translate(key) { return LANG[key] || key; }
+
+        var params = new URLSearchParams(window.location.search);
+        var week = params.get('week') || '';
+        var editId = params.get('edit');
+        var selectedDays = [];
+
+        document.getElementById('taskWeek').value = week;
+
+        function toggleFields() {
+            var type = document.getElementById('ttype').value;
+            document.getElementById('fixedFields').style.display = type === 'fixed' ? 'block' : 'none';
+            document.getElementById('flexFields').style.display = type === 'flexible' ? 'block' : 'none';
+        }
+
+        function updateDayButtons(daysArray) {
+            selectedDays = (daysArray || []).map(Number);
+            document.getElementById('hiddenDays').value = selectedDays.join(',');
+            var btns = document.querySelectorAll('#dayButtons button');
+            for (var i = 0; i < btns.length; i++) {
+                var d = parseInt(btns[i].getAttribute('data-day'));
+                if (selectedDays.indexOf(d) > -1) {
+                    btns[i].classList.add('active');
+                } else {
+                    btns[i].classList.remove('active');
+                }
+            }
+        }
+
+        document.querySelectorAll('#dayButtons button').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var dayNum = parseInt(this.getAttribute('data-day'));
+                var idx = selectedDays.indexOf(dayNum);
+                if (idx > -1) {
+                    selectedDays.splice(idx, 1);
+                    this.classList.remove('active');
+                } else {
+                    selectedDays.push(dayNum);
+                    this.classList.add('active');
+                }
+                document.getElementById('hiddenDays').value = selectedDays.join(',');
+            });
+        });
+
+        document.getElementById('ttype').addEventListener('change', toggleFields);
+
+        if (editId) {
+            document.getElementById('pageTitle').textContent = 'Редактирование задачи';
+            document.getElementById('editTaskId').value = editId;
+            fetch('/api/tasks/' + editId)
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d && d.id) {
+                        document.getElementById('tname').value = d.name || '';
+                        document.getElementById('ttype').value = d.task_type || 'flexible';
+                        document.getElementById('tcat').value = d.category || 'work';
+                        document.getElementById('tact').value = d.activity_level || 5;
+                        if (d.task_type === 'flexible') {
+                            document.getElementById('tdur').value = d.duration || 1;
+                            document.getElementById('timp').value = d.importance || 5;
+                            document.getElementById('tple').value = d.pleasure || 5;
+                            document.getElementById('tdead').value = d.deadline || '';
+                            updateDayButtons(d.days || []);
+                        } else {
+                            document.getElementById('fdate').value = d.date || '';
+                        }
+                        toggleFields();
+                    }
+                });
+        } else {
+            document.getElementById('fdate').value = new Date().toISOString().split('T')[0];
+            toggleFields();
+        }
+
+        document.getElementById('tdur').addEventListener('input', function() {
+            var dur = parseFloat(this.value);
+            var msg = '';
+            if (dur > 1.5) msg = 'Задача длится более 90 минут. Рекомендуется разбить на части.';
+            document.getElementById('taskWarnings').textContent = msg;
+        });
+
+        function submitForm() {
+            if (editId) {
+                var btn = document.getElementById('submitBtn');
+                if (btn.disabled) return false;
+                btn.disabled = true;
+                btn.textContent = 'Сохранение...';
+                var taskData = {
+                    name: document.getElementById('tname').value,
+                    type: document.getElementById('ttype').value,
+                    category: document.getElementById('tcat').value,
+                    activity_level: parseInt(document.getElementById('tact').value),
+                    week: week
+                };
+                if (taskData.type === 'flexible') {
+                    taskData.duration = parseFloat(document.getElementById('tdur').value);
+                    taskData.importance = parseInt(document.getElementById('timp').value);
+                    taskData.pleasure = parseInt(document.getElementById('tple').value);
+                    taskData.deadline = document.getElementById('tdead').value;
+                    taskData.days = selectedDays;
+                } else {
+                    taskData.date = document.getElementById('fdate').value;
+                    taskData.begin = document.querySelector('[name="begin"]').value;
+                    taskData.end = document.querySelector('[name="end"]').value;
+                }
+                fetch('/api/tasks/' + editId, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(taskData)
+                })
+                .then(function(r) { if (!r.ok) throw new Error('Network error'); return r.json(); })
+                .then(function() { window.location.href = '/edit?week=' + encodeURIComponent(week); })
+                .catch(function() { alert('Ошибка сохранения'); btn.disabled = false; btn.textContent = 'Сохранить'; });
+                return false;
+            } else {
+                return true;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Аналитика</title>
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .dashboard-box {
+            background: #fff;
+            border-radius: 16px;
+            padding: 30px;
+            box-shadow: 0 4px 16px rgba(114,47,55,0.08);
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        .dashboard-box img {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .section-title {
+            color: #722F37;
+            font-weight: 600;
+            margin: 20px 0 10px;
+            font-size: 22px;
+            text-align: center;
+        }
+        .loading {
+            text-align: center;
+            color: #aaa;
+            padding: 60px;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="header-left">
+                <a href="/profile" class="header-btn">Профиль</a>
+                <a href="/instructions" class="header-btn">Инструкция</a>
+            </div>
+            <div class="header-title">Аналитика</div>
+            <div class="header-right">
+                <a href="/health" class="header-btn">Состояние</a>
+                <a href="/logout" class="header-btn">Выход</a>
+            </div>
+        </header>
+
+        <div id="content" class="loading">Загрузка дашборда...</div>
+    </div>
+
+    <script>
+        fetch('http://localhost:5000/svg/dashboard?user_id=1')
+            .then(r => {
+                if (!r.ok) throw new Error('Server error');
+                return r.blob();
+            })
+            .then(blob => {
+                const url = URL.createObjectURL(blob);
+                document.getElementById('content').innerHTML = `
+                    <div class="dashboard-box">
+                        <img src="${url}" alt="Dashboard">
+                    </div>`;
+            })
+            .catch(() => {
+                document.getElementById('content').innerHTML =
+                    '<p style="color:red;text-align:center;">Не удалось загрузить дашборд. Проверьте, запущен ли Python-сервис (порт 5000).</p>';
+            });
+    </script>
+</body>
+</html>
