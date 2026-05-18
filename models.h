@@ -18,14 +18,23 @@ struct Task {
 };
 
 struct FixedTask {
-    int taskId; std::string date, beginTime, endTime;
+    int taskId;
+    std::string name;
+    std::string date;
+    std::string beginTime;
+    std::string endTime;
 };
 
 struct FlexibleTask {
-    int taskId; double duration; std::string category;
-    int pleasure, importance; std::string deadline;
-    std::vector<int> preferredDays;
+    int taskId;
     std::string name;
+    double duration;
+    std::string category;
+    int pleasure;
+    int importance;
+    std::string deadline;
+    std::vector<int> preferredDays;
+    std::string color = "#F5F5F5";
 };
 
 struct HealthState {
@@ -44,6 +53,7 @@ struct WeeklyPlan {
     std::string weekStart; int userId;
     std::vector<ScheduledItem> scheduled;
     std::vector<FlexibleTask> unscheduled;
+    std::vector<FlexibleTask> postponed;
     std::vector<std::string> warnings;
     std::vector<Idea> suggestions;
     std::map<std::string, double> balanceSummary;

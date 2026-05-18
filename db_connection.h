@@ -14,13 +14,33 @@ private: PGconn* conn_;
 public:
     DbConnection() : conn_(nullptr) {}
     ~DbConnection() { if (conn_) PQfinish(conn_); }
-    bool connect(const std::string& host, int port, const std::string& dbname,
-        const std::string& user, const std::string& password) {
+    bool connect(const std::string& host, int port,
+        const std::string& dbname,
+        const std::string& user,
+        const std::string& password) {
         std::stringstream ss;
-        ss << "host=" << host << " port=" << port << " dbname=" << dbname << " user=" << user;
-        if (!password.empty()) ss << " password=" << password;
+        ss << "host=" << host
+            << " port=" << port
+            << " dbname=" << dbname
+            << " user=" << user;
+
+        if (!password.empty()) {
+            ss << " password=" << password;
+        }
+
         conn_ = PQconnectdb(ss.str().c_str());
-        return PQstatus(conn_) == CONNECTION_OK;
+
+        if (PQstatus(conn_) != CONNECTION_OK) {
+            return false;
+        }
+
+        PGresult* res = PQexec(conn_, "SET client_encoding TO 'UTF8'");
+        if (PQresultStatus(res) != PGRES_COMMAND_OK) {
+            std::cerr << "WARNING: Failed to set client_encoding" << std::endl;
+        }
+        PQclear(res);
+
+        return true;
     }
     PGresult* execute(const std::string& sql) {
         PGresult* res = PQexec(conn_, sql.c_str());
