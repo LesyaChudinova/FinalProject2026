@@ -31,7 +31,9 @@ add_custom_command(TARGET AcademicYearProject2026 POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PG_PATH}/bin/libcrypto-3-x64.dll" "$<TARGET_FILE_DIR:AcademicYearProject2026>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PG_PATH}/bin/libssl-3-x64.dll" "$<TARGET_FILE_DIR:AcademicYearProject2026>"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different "${PG_PATH}/bin/libintl-9.dll" "$<TARGET_FILE_DIR:AcademicYearProject2026>"
-    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/front" "$<TARGET_FILE_DIR:AcademicYearProject2026>/front")
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/front" "$<TARGET_FILE_DIR:AcademicYearProject2026>/front"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory_if_different "${CMAKE_SOURCE_DIR}/analytics" "$<TARGET_FILE_DIR:AcademicYearProject2026>/analytics"
+)
 
 if(WIN32)
     target_compile_definitions(AcademicYearProject2026 PRIVATE 
